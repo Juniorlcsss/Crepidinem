@@ -1,0 +1,147 @@
+[project]
+name = "crepidinem"
+version = "0.1.0"
+description = "Autonomous wet-lab / physical-science agent that must prove its control code in a deterministic physics sandbox before touching hardware."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = [
+    "httpx>=0.27",
+    "openai>=1.40",
+    "python-dotenv>=1.0",
+    "tavily-python>=0.8.0",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=2.0"]
+dev = [
+    "mypy>=1.11",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+ui = [
+    "plotly>=5.22",
+    "streamlit>=1.36",
+]
+
+[project.scripts]
+crepidinem = "crepidinem.cli:main"
+crepidinem-ui = "crepidinem.ui.launch:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/crepidinem"]
+
+# ---------------------------------------------------------------- ruff
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "A",    # flake8-builtins
+    "ANN",  # flake8-annotations
+    "ARG",  # unused arguments
+    "ASYNC",# flake8-async
+    "B",    # bugbear
+    "C4",   # comprehensions
+    "E",    # pycodestyle errors
+    "EM",   # error messages
+    "F",    # pyflakes
+    "FBT",  # boolean traps
+    "I",    # isort
+    "N",    # pep8-naming
+    "PL",   # pylint
+    "PTH",  # use pathlib
+    "RET",  # return
+    "RUF",  # ruff-specific
+    "S",    # bandit
+    "SIM",  # simplify
+    "T20",  # no print (relaxed for cli)
+    "TID",  # tidy imports
+    "TRY",  # tryceratops
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+]
+ignore = [
+    "ANN401",   # allow Any in the few json-boundary signatures
+    "TRY003",   # long messages in custom exceptions are deliberate here
+    "ASYNC109", # `timeout` is a sandbox-side budget, not an asyncio deadline;
+                # it must cross the API boundary as a parameter
+]
+
+[tool.ruff.lint.pylint]
+# Configuration constructors here take keyword-only arguments by design.
+max-args = 8
+
+[tool.ruff.lint.per-file-ignores]
+"src/crepidinem/cli.py" = ["T201"]                       # the CLI is allowed to print
+# The loop prints, takes keyword-only configuration, and is long because it is
+# the whole story in one place; splitting it would hide the sequence.
+"src/crepidinem/orchestrator/core.py" = ["T201", "PLR0913", "PLR0915"]
+"src/crepidinem/mcp_tools/harness.py" = ["E501"]         # embedded sandbox source template
+"src/crepidinem/agents/base.py" = ["ARG002"]             # protocol stubs
+"src/crepidinem/sandbox/base.py" = ["ARG002"]            # protocol stubs
+"src/crepidinem/mcp_tools/physics_sandbox.py" = ["PLR0913"]  # the report constructor
+"src/crepidinem/ui/app.py" = ["PLR0915"]                 # a dashboard is one long draw call
+# Each early return in the acceptance ladder is a distinct, named verdict.
+"src/crepidinem/research/hardware.py" = ["PLR0911"]
+# Tests assert, use literal fixtures, and define local doubles.
+"tests/*" = ["S101", "PLR2004", "ANN", "ARG002", "PLC0415"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[tool.ruff.lint.isort]
+known-first-party = ["crepidinem", "tests"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ---------------------------------------------------------------- mypy
+
+[tool.mypy]
+# Matches `requires-python` exactly. 3.12 is a hard floor, not a preference:
+# numpy 2.5's stubs (reached through openai and plotly) use 3.12 `type`
+# statements that mypy will not parse against an older target.
+python_version = "3.12"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+warn_return_any = true
+disallow_any_explicit = false
+disallow_any_generics = true
+no_implicit_reexport = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+# The chart stack ships no usable typing for our purposes and drags in numpy,
+# whose stubs are enormous. Treating it as untyped keeps mypy fast and keeps
+# its errors about our code rather than about pandas internals.
+module = ["tavily.*", "plotly.*", "streamlit.*", "numpy.*", "pandas.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["mcp.*"]
+ignore_missing_imports = true
+implicit_reexport = true
+
+[[tool.mypy.overrides]]
+# The MCP SDK tool decorator is untyped; the shim around it is three lines.
+module = ["crepidinem.mcp_tools.server"]
+disallow_untyped_decorators = false
+
+# ---------------------------------------------------------------- pytest
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q"
