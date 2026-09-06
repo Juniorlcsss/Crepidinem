@@ -37,7 +37,7 @@ def configure_logging(level: str = "INFO") -> None:
     handler = logging.StreamHandler(stream=sys.stderr)
     handler.setFormatter(logging.Formatter(_FORMAT, datefmt=_DATEFMT))
     handler.setLevel(resolved)
-    handler._crepidinem = True
+    setattr(handler, "_crepidinem", True)
     root.addHandler(handler)
 
     logging.getLogger("httpx").setLevel(logging.WARNING)

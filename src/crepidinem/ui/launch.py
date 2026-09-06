@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -20,14 +21,12 @@ crepidinem: the dashboard needs the `ui` extra.
 
 def main(argv: list[str] | None = None) -> int:
     """launch Streamlit dashboard"""
-    try:
-        import streamlit
-    except ImportError:
+    if importlib.util.find_spec("streamlit") is None:
         sys.stderr.write(_MISSING)
         return 2
 
     command = [sys.executable, "-m", "streamlit", "run", str(_APP), *(argv or sys.argv[1:])]
-    return subprocess.call(command)
+    return subprocess.call(command)  # noqa: S603
 
 
 if __name__ == "__main__":
